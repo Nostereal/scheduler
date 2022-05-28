@@ -50,11 +50,16 @@ dependencies {
     implementation("org.postgresql:postgresql:42.3.4") // JDBC Connector for PostgreSQL
 
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+    testImplementation("org.assertj:assertj-core:3.22.0")
+    testImplementation(kotlin("test"))
 }
 
 tasks.withType<Jar> {
     manifest {
         attributes["Main-Class"] = "com.scheduler.ApplicationKt"
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

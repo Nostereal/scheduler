@@ -1,6 +1,7 @@
 package com.scheduler.auth
 
 import com.scheduler.auth.models.AuthRequest
+import com.scheduler.shared.models.TypedResult
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -12,11 +13,15 @@ import org.kodein.di.instance
 fun Route.authorize(di: DI) {
     val authRepository: AuthRepository by di.instance()
     post("api/1/auth") {
-        val request: AuthRequest = call.receive()
+        val request: AuthRequest = call.receiveOrNull() ?: return@post call.respond(
+            TypedResult.BadRequest(
+                "Login or password is missing"
+            )
+        )
 
         val response = authRepository.getToken(request.login, request.password)
 
-        call.respond(response)
+        call.respond(TypedResult.Ok(response))
     }
 }
 

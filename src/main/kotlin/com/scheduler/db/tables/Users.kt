@@ -1,11 +1,13 @@
-package com.scheduler.profile.models.db
+package com.scheduler.db.tables
 
 import org.jetbrains.exposed.dao.LongEntity
 import org.jetbrains.exposed.dao.LongEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
-import org.jetbrains.exposed.dao.id.LongIdTable
+import org.jetbrains.exposed.dao.id.IdTable
 
-object Users : LongIdTable() {
+object Users : IdTable<Long>(name = "users") {
+    override val id = long("id").entityId()
+    override val primaryKey = PrimaryKey(id)
     val firstName = varchar("first_name", 50)
     val lastName = varchar("last_name", 50)
     val middleName = varchar("middle_name", 50).nullable()

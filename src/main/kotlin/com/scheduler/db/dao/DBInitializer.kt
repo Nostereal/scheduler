@@ -1,4 +1,4 @@
-package com.scheduler.dao
+package com.scheduler.db.dao
 
 import io.ktor.server.application.*
 import org.kodein.di.DI

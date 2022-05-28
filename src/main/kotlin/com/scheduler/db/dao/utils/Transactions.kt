@@ -1,4 +1,4 @@
-package com.scheduler.dao.utils
+package com.scheduler.db.dao.utils
 
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction

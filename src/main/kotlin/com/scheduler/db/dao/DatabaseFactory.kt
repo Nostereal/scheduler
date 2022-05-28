@@ -1,8 +1,8 @@
-package com.scheduler.dao
+package com.scheduler.db.dao
 
 import com.scheduler.DatabaseConfig
-import com.scheduler.profile.models.db.Bookings
-import com.scheduler.profile.models.db.Users
+import com.scheduler.db.tables.Bookings
+import com.scheduler.db.tables.Users
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction

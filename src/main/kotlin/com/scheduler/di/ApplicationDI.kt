@@ -2,13 +2,20 @@ package com.scheduler.di
 
 import com.scheduler.AppConfig
 import com.scheduler.DatabaseConfig
+import com.scheduler.db.dao.DatabaseFactory
+import com.scheduler.db.dao.DatabaseFactoryImpl
 import com.scheduler.plugins.json
+import com.scheduler.polytech.di.bindPolytechApi
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
 import io.ktor.server.config.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.kodein.di.DI
 import org.kodein.di.bindSingleton
 import org.kodein.di.instance
@@ -23,7 +30,7 @@ fun DI.MainBuilder.bindAppConfig(config: ApplicationConfig) {
     bindSingleton { AppConfig(instance()) }
 }
 
-fun DI.MainBuilder.bindHttpClient() {
+fun DI.Builder.bindHttpClient() {
     bindSingleton {
         HttpClient(CIO) {
             json()
@@ -39,3 +46,14 @@ fun DI.MainBuilder.bindHttpClient() {
 
     }
 }
+
+val coreApplicationModule = DI.Module(name = "coreApplication") {
+    bindSingleton<DatabaseFactory> { DatabaseFactoryImpl(instance()) }
+    bindSingleton(tag = APP_SCOPE_TAG) {
+        CoroutineScope(CoroutineName("application scope") + SupervisorJob() + Dispatchers.Default)
+    }
+    bindHttpClient()
+    bindPolytechApi()
+}
+
+const val APP_SCOPE_TAG = "appCoroutineScope"

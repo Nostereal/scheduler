@@ -1,14 +1,13 @@
 package com.scheduler.profile.models
 
-import com.scheduler.shared.serializer.OffsetDateTimeSerializer
+import com.scheduler.shared.serializer.ZonedDateTimeSerializer
 import kotlinx.serialization.Serializable
-import java.time.OffsetDateTime
-
+import java.time.ZonedDateTime
 
 @Serializable
 data class TimeBracket(
-    @Serializable(with = OffsetDateTimeSerializer::class)
-    val start: OffsetDateTime,
-    @Serializable(with = OffsetDateTimeSerializer::class)
-    val end: OffsetDateTime,
+    @Serializable(with = ZonedDateTimeSerializer::class)
+    val start: ZonedDateTime,
+    @Serializable(with = ZonedDateTimeSerializer::class)
+    val end: ZonedDateTime,
 )

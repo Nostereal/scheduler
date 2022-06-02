@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun Route.authorize(di: DI) {
+fun Route.authHandler(di: DI) {
     val authRepository: AuthRepository by di.instance()
     post("api/1/auth") {
         val request: AuthRequest = call.receiveOrNull() ?: return@post call.respond(

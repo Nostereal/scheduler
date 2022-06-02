@@ -23,7 +23,10 @@ class TypedResultSerializer<T>(private val dataSerializer: KSerializer<T>) : KSe
         when (value) {
             is TypedResult.Ok -> encoder.encodeSerializableValue(TypedResult.Ok.serializer(dataSerializer), value)
             is TypedResult.BadRequest -> encoder.encodeSerializableValue(TypedResult.BadRequest.serializer(), value)
-            is TypedResult.InternalError -> encoder.encodeSerializableValue(TypedResult.InternalError.serializer(), value)
+            is TypedResult.InternalError -> encoder.encodeSerializableValue(
+                TypedResult.InternalError.serializer(),
+                value
+            )
         }
     }
 

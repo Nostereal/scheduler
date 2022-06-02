@@ -1,6 +1,8 @@
 package com.scheduler
 
 import com.scheduler.auth.di.authModule
+import com.scheduler.booking.di.bookingModule
+import com.scheduler.config.di.systemConfigModule
 import com.scheduler.db.dao.initDB
 import com.scheduler.di.bindAppConfig
 import com.scheduler.di.coreApplicationModule
@@ -21,6 +23,8 @@ fun Application.module() {
             coreApplicationModule,
             profileModule,
             authModule,
+            bookingModule,
+            systemConfigModule,
         )
     }
     initDB(di)

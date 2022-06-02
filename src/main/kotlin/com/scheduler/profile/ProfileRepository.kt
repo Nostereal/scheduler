@@ -10,8 +10,8 @@ import com.scheduler.profile.models.ProfileResponse
 import com.scheduler.profile.models.TimeBracket
 import com.scheduler.shared.models.ImageUrl
 import kotlinx.coroutines.*
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.ZoneId
+import java.time.ZonedDateTime
 
 class ProfileRepository(
     private val bookingsDao: BookingsDao,
@@ -48,8 +48,8 @@ class ProfileRepository(
 
 }
 
-fun com.scheduler.db.tables.Booking.toBookingModel(): Booking {
-    val startTime = OffsetDateTime.of(date, ZoneOffset.UTC)
+fun com.scheduler.db.tables.BookingEntity.toBookingModel(): Booking {
+    val startTime = ZonedDateTime.of(date, time, ZoneId.of("Europe/Moscow"))
     return Booking(
         id = id.value,
         timeBracket = TimeBracket(

@@ -1,7 +1,5 @@
 package com.scheduler.profile.di
 
-import com.scheduler.db.dao.di.bindBookingsDao
-import com.scheduler.db.dao.di.bindUsersDao
 import com.scheduler.di.APP_SCOPE_TAG
 import com.scheduler.profile.ProfileRepository
 import org.kodein.di.DI
@@ -13,7 +11,5 @@ fun DI.Builder.bindProfileRepositories() {
 }
 
 val profileModule = DI.Module(name = "profile") {
-    bindUsersDao()
-    bindBookingsDao()
     bindProfileRepositories()
 }

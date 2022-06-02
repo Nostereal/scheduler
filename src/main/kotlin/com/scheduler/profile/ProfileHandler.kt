@@ -9,7 +9,7 @@ import io.ktor.server.routing.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun Route.getProfile(di: DI) {
+fun Route.profileHandler(di: DI) {
     val profileRepository by di.instance<ProfileRepository>()
     get("api/1/profile") {
         val params = parseQueryString(call.request.queryString())

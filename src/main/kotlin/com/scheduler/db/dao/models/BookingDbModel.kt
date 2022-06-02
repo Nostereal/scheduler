@@ -1,10 +1,10 @@
 package com.scheduler.db.dao.models
 
-import java.time.OffsetDateTime
-import java.util.*
+import java.time.LocalDate
+import java.time.LocalTime
 
 data class BookingDbModel(
-    val uuid: UUID,
-    val date: OffsetDateTime,
+    val date: LocalDate,
+    val time: LocalTime,
     val ownerId: Long,
 )

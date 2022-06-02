@@ -4,21 +4,21 @@ import com.scheduler.shared.serializer.TypedResultSerializer
 import kotlinx.serialization.Serializable
 
 @Serializable(with = TypedResultSerializer::class)
-sealed class TypedResult<T> {
-    abstract val result: T
+sealed class TypedResult<in T> {
+//    abstract val result: T?
     abstract val status: String
 
     @Serializable
-    data class Ok<T : Any>(
-        override val result: T,
+    data class Ok<T>(
+        val result: T?,
         override val status: String = "ok",
     ) : TypedResult<T>()
 
     @Serializable
     data class BadRequest(
-        override val result: ErrorWithMessage,
+        val result: ErrorWithMessage,
         override val status: String = "bad-request",
-    ) : TypedResult<ErrorWithMessage>() {
+    ) : TypedResult<Any>() {
 
         constructor(message: String) : this(result = ErrorWithMessage(message))
 
@@ -26,9 +26,9 @@ sealed class TypedResult<T> {
 
     @Serializable
     data class InternalError(
-        override val result: ErrorWithMessage,
+        val result: ErrorWithMessage,
         override val status: String = "internal-error",
-    ) : TypedResult<ErrorWithMessage>() {
+    ) : TypedResult<Any>() {
 
         constructor(message: String) : this(result = ErrorWithMessage(message))
 

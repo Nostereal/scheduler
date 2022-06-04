@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ProfileResponse(
     val profileInfo: ProfileInfo,
-    val bookings: List<Booking>,
+    val bookings: List<ProfileBooking>,
 )

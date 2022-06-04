@@ -62,5 +62,9 @@ enum class DayType(val id: String) {
             }
             return SERVER_ERROR
         }
+
+        fun isErrorType(id: String): Boolean {
+            return id == SERVER_ERROR.id || id == NOT_FOUND.id || id == ERROR_DATE.id
+        }
     }
 }

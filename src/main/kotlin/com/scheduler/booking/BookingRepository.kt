@@ -5,9 +5,8 @@ import com.scheduler.booking.models.ScheduleBooking
 import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.SystemConfigDao
 import com.scheduler.db.dao.models.BookingDbModel
-import com.scheduler.db.tables.BookingEntity
 import com.scheduler.isdayoff.IsDayOff
-import com.scheduler.profile.models.Booking
+import com.scheduler.profile.models.ProfileBooking
 import com.scheduler.shared.models.ErrorWithMessage
 import com.scheduler.shared.models.TypedResult
 import com.scheduler.utils.isDayWorking
@@ -36,7 +35,7 @@ class BookingRepository(
         }
     }
 
-    suspend fun createBooking(userId: Long, date: LocalDate, sessionNum: Short): TypedResult<Booking> = coroutineScope {
+    suspend fun createBooking(userId: Long, date: LocalDate, sessionNum: Short): TypedResult<ProfileBooking> = coroutineScope {
         if (date < ZonedDateTime.now(moscowZoneId).toLocalDate()) {
             return@coroutineScope TypedResult.BadRequest("Хорошая попытка, но в прошлое записаться нельзя")
         }
@@ -57,13 +56,7 @@ class BookingRepository(
             return@coroutineScope TypedResult.BadRequest(message)
         }
 
-        val dbBooking = bookingsDao.insertBooking(
-            BookingDbModel(
-                date = date,
-                sessionNum = sessionNum,
-                ownerId = userId
-            )
-        )
+        val dbBooking = bookingsDao.insertBooking(date = date, sessionNum = sessionNum, ownerId = userId)
         return@coroutineScope TypedResult.Ok(dbBooking)
     }
 
@@ -77,7 +70,7 @@ class BookingRepository(
             return@coroutineScope TypedResult.BadRequest(message)
         }
 
-        val bookings: Map<Short, List<BookingEntity>> = bookingsDef.await().groupBy { it.sessionNum }
+        val bookings: Map<Short, List<BookingDbModel>> = bookingsDef.await().groupBy { it.sessionNum }
         val config = configDef.await()
 
         val dayStart = config.workingHoursStart
@@ -100,6 +93,7 @@ class BookingRepository(
 
             BookingsForDate.Session.Open(
                 startTime = dayStart.plusSeconds(sessionIndex * sessionSecs),
+                sessionNum = sessionNum,
                 bookings = sessionBookings,
             )
         }
@@ -116,6 +110,7 @@ class BookingRepository(
 
             BookingsForDate.Session.Open(
                 startTime = launchEnd.plusSeconds(sessionIndex * sessionSecs),
+                sessionNum = sessionNum,
                 bookings = sessionBookings,
             )
         }
@@ -130,13 +125,13 @@ class BookingRepository(
         )
     }
 
-    private fun Map<Short, List<BookingEntity>>.mapToScheduleBookings(sessionNum: Number): List<ScheduleBooking> {
-        return get(sessionNum)
-            .orEmpty()
-            .map {
-                val owner = it.ownerId
-                ScheduleBooking(id = it.id.value, owner = "${owner.firstName} ${owner.lastName} из ${owner.dormRoom}")
-            }
-    }
+}
 
+fun Map<Short, List<BookingDbModel>>.mapToScheduleBookings(sessionNum: Number): List<ScheduleBooking> {
+    return get(sessionNum)
+        .orEmpty()
+        .map {
+            val owner = it.owner
+            ScheduleBooking(id = it.uuid, owner = "${owner.firstName} ${owner.lastName} из ${owner.dormRoom}")
+        }
 }

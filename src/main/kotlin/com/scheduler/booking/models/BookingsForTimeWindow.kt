@@ -1,27 +1,13 @@
 package com.scheduler.booking.models
 
-import com.scheduler.profile.models.Booking
 import com.scheduler.shared.serializer.UUIDSerializer
 import com.scheduler.shared.serializer.date.LocalDateSerializer
 import com.scheduler.shared.serializer.date.LocalTimeSerializer
-import com.scheduler.shared.serializer.date.ZonedDateTimeSerializer
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZonedDateTime
 import java.util.*
-
-@Serializable
-data class BookingsForDateResponse(
-    val bookingWindows: List<BookingsForTimeWindow>,
-)
-
-@Serializable
-data class BookingsForTimeWindow(
-    @Serializable(with = ZonedDateTimeSerializer::class)
-    val startDate: ZonedDateTime,
-    val bookings: List<Booking>,
-)
 
 @Serializable
 data class BookingsForDate(
@@ -36,13 +22,16 @@ data class BookingsForDate(
     sealed interface Session {
 
         @Serializable
+        @SerialName("open")
         data class Open(
             @Serializable(with = LocalTimeSerializer::class)
             val startTime: LocalTime,
+            val sessionNum: Short,
             val bookings: List<ScheduleBooking>,
         ) : Session
 
         @Serializable
+        @SerialName("launch")
         data class Launch(
             val banner: AlertModel?,
         ) : Session

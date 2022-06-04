@@ -2,8 +2,8 @@ package com.scheduler.db.dao
 
 import com.scheduler.DatabaseConfig
 import com.scheduler.db.tables.BookingsTable
-import com.scheduler.db.tables.SystemConfigs
-import com.scheduler.db.tables.Users
+import com.scheduler.db.tables.SystemConfigsTable
+import com.scheduler.db.tables.UsersTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -20,8 +20,8 @@ class DatabaseFactoryImpl(private val dbConfig: DatabaseConfig) : DatabaseFactor
     override fun connect() {
         val database = Database.connect(url = dbConfig.jdbcUrl, driver = dbConfig.driverClassName)
         transaction(database) {
-            SchemaUtils.create(BookingsTable, Users, SystemConfigs)
-            SchemaUtils.createMissingTablesAndColumns(BookingsTable, Users, SystemConfigs)
+            SchemaUtils.create(BookingsTable, UsersTable, SystemConfigsTable)
+            SchemaUtils.createMissingTablesAndColumns(BookingsTable, UsersTable, SystemConfigsTable)
         }
     }
 

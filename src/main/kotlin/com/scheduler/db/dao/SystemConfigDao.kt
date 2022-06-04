@@ -1,21 +1,21 @@
 package com.scheduler.db.dao
 
 import com.scheduler.db.dao.utils.dbQuery
-import com.scheduler.db.tables.SystemConfig
-import com.scheduler.db.tables.SystemConfigs
+import com.scheduler.db.tables.SystemConfigEntity
+import com.scheduler.db.tables.SystemConfigsTable
 import org.jetbrains.exposed.sql.SortOrder
 import java.time.LocalDate
 
 interface SystemConfigDao {
 
-    suspend fun getConfigForDate(date: LocalDate): SystemConfig
+    suspend fun getConfigForDate(date: LocalDate): SystemConfigEntity
 
 }
 
 class SystemConfigDatabase : SystemConfigDao {
 
-    override suspend fun getConfigForDate(date: LocalDate): SystemConfig = dbQuery {
-        val configs = SystemConfig.all().orderBy(SystemConfigs.id to SortOrder.DESC).toList()
+    override suspend fun getConfigForDate(date: LocalDate): SystemConfigEntity = dbQuery {
+        val configs = SystemConfigEntity.all().orderBy(SystemConfigsTable.id to SortOrder.DESC).toList()
 
         val actualConfig = configs.first()
         if (date >= actualConfig.createdAt) return@dbQuery actualConfig

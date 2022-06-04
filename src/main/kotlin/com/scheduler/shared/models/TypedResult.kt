@@ -21,6 +21,10 @@ sealed class TypedResult<in T> {
 
         constructor(message: String) : this(result = ErrorWithMessage(message))
 
+        companion object {
+            val withDefaultError = BadRequest("Произошла ошибка, попробуйте позже")
+        }
+
     }
 
     @Serializable

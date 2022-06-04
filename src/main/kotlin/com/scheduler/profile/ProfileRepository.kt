@@ -3,11 +3,12 @@ package com.scheduler.profile
 import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.UsersDao
 import com.scheduler.db.dao.models.UserDbModel
-import com.scheduler.db.tables.SystemConfig
+import com.scheduler.db.tables.SystemConfigEntity
 import com.scheduler.polytech.PolytechApi
 import com.scheduler.profile.models.ProfileInfo
 import com.scheduler.profile.models.ProfileResponse
 import com.scheduler.shared.models.ImageUrl
+import com.scheduler.shared.models.TypedResult
 import kotlinx.coroutines.*
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
@@ -19,13 +20,13 @@ class ProfileRepository(
     private val appScope: CoroutineScope,
 ) {
 
-    suspend fun getProfileInfo(token: String): ProfileResponse = coroutineScope {
+    suspend fun getProfileInfo(token: String): TypedResult<ProfileResponse> = coroutineScope {
         val dormitoryDeferred = async(Dispatchers.IO) { polytechApi.getDormInfo(token) }
         val userInfoDeferred = async(Dispatchers.IO) { polytechApi.getUserInfo(token) }
 
         val dormitory = dormitoryDeferred.await()
         val userInfo = userInfoDeferred.await().user
-        val bookings = bookingsDao.allBookingsByUser(userInfo.id)/*.map { it.toBookingModel() }*/
+        val bookings = bookingsDao.allBookingsByUser(userInfo.id)
 
         val userDbModel = UserDbModel.from(userInfo, dormitory)
         appScope.launch { usersDao.insertUserIfNotExist(userDbModel) }
@@ -37,9 +38,11 @@ class ProfileRepository(
             livingRoom = dormitory.dormRoom,
         )
 
-        ProfileResponse(
-            profileInfo = profileInfo,
-            bookings = bookings,
+        TypedResult.Ok(
+            ProfileResponse(
+                profileInfo = profileInfo,
+                bookings = bookings,
+            )
         )
     }
 
@@ -47,7 +50,7 @@ class ProfileRepository(
 
 }
 
-fun calculateSessionStartTime(config: SystemConfig, sessionNum: Short): LocalTime {
+fun calculateSessionStartTime(config: SystemConfigEntity, sessionNum: Short): LocalTime {
     val dayStart = config.workingHoursStart
     val sessionSecs = config.sessionSeconds
     val launchStart = config.launchTimeStart

@@ -234,10 +234,11 @@ class IsDayOff(builder: IsDayOffBuilder) {
         if (cache.isCached) {
             if (!cache.checkCacheFile(year)) {
                 val response = buildUrlAndSendRequest(year, null, null)
-                val dayType = DayType.fromId(response)
-                if (response == null || DayType.ERROR_DATE == dayType || DayType.NOT_FOUND == dayType || DayType.SERVER_ERROR == dayType) {
+
+                if (response == null || DayType.isErrorType(response)) {
                     return response
                 }
+
                 cache.createCacheFile(response, year)
             }
             return cache.getCachedDay(year, month, day)

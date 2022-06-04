@@ -1,5 +1,6 @@
 package com.scheduler.db.dao.models
 
+import com.scheduler.db.tables.UserEntity
 import com.scheduler.polytech.models.PolytechPaymentsResponse
 import com.scheduler.polytech.models.PolytechUserResponse
 
@@ -8,8 +9,8 @@ data class UserDbModel(
     val firstName: String,
     val lastName: String,
     val middleName: String?,
-    val dormNum: String,
-    val dormRoom: String,
+    val dormNum: String?,
+    val dormRoom: String?,
     val isAdmin: Boolean,
 ) {
     companion object {
@@ -24,5 +25,16 @@ data class UserDbModel(
                 isAdmin = userInfo.userStatus != PolytechUserResponse.User.Status.STUDENT, // todo: recognize admin
             )
 
+        fun from(entity: UserEntity) = with(entity) {
+            UserDbModel(
+                id = id.value,
+                firstName = firstName,
+                lastName = lastName,
+                middleName = middleName,
+                dormNum = dormNum,
+                dormRoom = dormRoom,
+                isAdmin = isAdmin,
+            )
+        }
     }
 }

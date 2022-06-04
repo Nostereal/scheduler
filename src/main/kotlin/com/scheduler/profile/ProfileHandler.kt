@@ -11,15 +11,15 @@ import org.kodein.di.instance
 
 fun Route.profileHandler(di: DI) {
     val profileRepository by di.instance<ProfileRepository>()
+
     get("api/1/profile") {
         val params = parseQueryString(call.request.queryString())
 
-        val token = params["token"] ?: return@get call.respond(
-            TypedResult.BadRequest("Token is missing")
-        )
+        val token = params["token"]
+            ?: return@get call.respond(TypedResult.BadRequest.withDefaultError)
 
         val profileInfo = profileRepository.getProfileInfo(token)
-        call.respond(TypedResult.Ok(profileInfo))
+        call.respond(profileInfo)
     }
 
 }

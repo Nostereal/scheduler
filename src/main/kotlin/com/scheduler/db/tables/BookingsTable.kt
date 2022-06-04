@@ -14,8 +14,8 @@ object BookingsTable : UUIDTable(name = "bookings") {
 //        { it.truncatedTo(ChronoUnit.MINUTES) }
 //    )
     val sessionNumber = short("session_num")
-    val ownerId = reference("owner_id", Users)
-    val configVersion = reference("config_ver", SystemConfigs)
+    val ownerId = reference("owner_id", UsersTable)
+    val configVersion = reference("config_ver", SystemConfigsTable)
 }
 
 class BookingEntity(uuid: EntityID<UUID>) : UUIDEntity(uuid) {
@@ -24,6 +24,6 @@ class BookingEntity(uuid: EntityID<UUID>) : UUIDEntity(uuid) {
     var date by BookingsTable.date
 //    var time by BookingsTable.time
     var sessionNum by BookingsTable.sessionNumber
-    var ownerId by User referencedOn BookingsTable.ownerId
-    var configVersion by SystemConfig referencedOn BookingsTable.configVersion
+    var owner by UserEntity referencedOn BookingsTable.ownerId
+    var configVersion by SystemConfigEntity referencedOn BookingsTable.configVersion
 }

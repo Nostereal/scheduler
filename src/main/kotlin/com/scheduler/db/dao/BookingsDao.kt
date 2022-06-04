@@ -5,9 +5,10 @@ import com.scheduler.db.dao.utils.dbQuery
 import com.scheduler.db.dao.utils.toBookingModel
 import com.scheduler.db.tables.BookingEntity
 import com.scheduler.db.tables.BookingsTable
-import com.scheduler.db.tables.SystemConfig
-import com.scheduler.db.tables.User
-import com.scheduler.profile.models.Booking
+import com.scheduler.db.tables.SystemConfigEntity
+import com.scheduler.db.tables.UserEntity
+import com.scheduler.profile.models.ProfileBooking
+import org.jetbrains.exposed.dao.with
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -16,15 +17,19 @@ import java.util.*
 
 interface BookingsDao {
 
-    suspend fun allBookingsByUser(userId: Long): List<Booking>
+    suspend fun allBookingsByUser(userId: Long): List<ProfileBooking>
 
     suspend fun allUpcomingBookingsByUser(userId: Long, since: LocalDate): List<BookingEntity>
 
     suspend fun allBookings(): List<BookingEntity>
 
-    suspend fun allBookingsByDate(date: LocalDate): List<BookingEntity>
+    suspend fun allBookingsByDate(date: LocalDate): List<BookingDbModel>
 
-    suspend fun insertBooking(booking: BookingDbModel): Booking
+    suspend fun insertBooking(
+        date: LocalDate,
+        sessionNum: Short,
+        ownerId: Long,
+    ): ProfileBooking
 
     suspend fun deleteBooking(id: UUID): Boolean
 
@@ -32,7 +37,7 @@ interface BookingsDao {
 
 class BookingDatabase : BookingsDao {
 
-    override suspend fun allBookingsByUser(userId: Long): List<Booking> = dbQuery {
+    override suspend fun allBookingsByUser(userId: Long): List<ProfileBooking> = dbQuery {
         BookingEntity
             .find { BookingsTable.ownerId eq userId }
             .toList()
@@ -49,42 +54,27 @@ class BookingDatabase : BookingsDao {
         BookingEntity.all().toList()
     }
 
-    override suspend fun allBookingsByDate(date: LocalDate): List<BookingEntity> = dbQuery {
+    override suspend fun allBookingsByDate(date: LocalDate): List<BookingDbModel> = dbQuery {
         BookingEntity
             .find { BookingsTable.date eq date }
             .orderBy(BookingsTable.sessionNumber to SortOrder.ASC)
+            .with(BookingEntity::owner)
             .toList()
+            .map (BookingDbModel::from)
     }
 
-    /*
-    * {
-    *   "date": "11.11.22",
-    *   "windows": [ // sorted list
-    *       {
-    *           "startTime": "11:00",
-    *           "endTime": "11:50", // startTime + config.sessionSeconds
-    *           "bookings": [
-    *               {
-    *                   "owner": {
-    *                       "firstName": "abc",
-    *                       "secondName": "abc",
-    *                       "room": "127",
-    *                   }
-    *               }
-    *           ],
-    *       }
-    *   ]
-    * }
-    * */
-
-    override suspend fun insertBooking(booking: BookingDbModel) = dbQuery {
-        val config = SystemConfig.all().maxByOrNull { it.id.value }!!
-        val owner = User[booking.ownerId]
+    override suspend fun insertBooking(
+        date: LocalDate,
+        sessionNum: Short,
+        ownerId: Long,
+    ) = dbQuery {
+        val config = SystemConfigEntity.all().maxByOrNull { it.id.value }!!
+        val owner = UserEntity[ownerId]
 
         val entity = BookingEntity.new {
-            date = booking.date
-            sessionNum = booking.sessionNum
-            ownerId = owner
+            this.date = date
+            this.sessionNum = sessionNum
+            this.owner = owner
             configVersion = config
         }
 

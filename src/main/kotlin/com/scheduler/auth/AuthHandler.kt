@@ -15,13 +15,13 @@ fun Route.authHandler(di: DI) {
     post("api/1/auth") {
         val request: AuthRequest = call.receiveOrNull() ?: return@post call.respond(
             TypedResult.BadRequest(
-                "Login or password is missing"
+                "Не хватает логина или пароля"
             )
         )
 
         val response = authRepository.getTokenWithUserId(request.login, request.password)
 
-        call.respond(TypedResult.Ok(response))
+        call.respond(response)
     }
 }
 

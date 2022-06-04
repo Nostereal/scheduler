@@ -2,13 +2,13 @@ package com.scheduler.db.dao
 
 import com.scheduler.db.dao.models.UserDbModel
 import com.scheduler.db.dao.utils.dbQuery
-import com.scheduler.db.tables.User
-import com.scheduler.db.tables.Users
+import com.scheduler.db.tables.UserEntity
+import com.scheduler.db.tables.UsersTable
 import org.jetbrains.exposed.sql.insertIgnore
 
 interface UsersDao {
 
-    suspend fun getUserById(userId: Long): User?
+    suspend fun getUserById(userId: Long): UserEntity?
 
     suspend fun insertUserIfNotExist(user: UserDbModel)
 
@@ -17,11 +17,11 @@ interface UsersDao {
 class UsersDatabase : UsersDao {
 
     override suspend fun getUserById(userId: Long) = dbQuery {
-        User.findById(userId)
+        UserEntity.findById(userId)
     }
 
     override suspend fun insertUserIfNotExist(user: UserDbModel): Unit = dbQuery {
-        Users.insertIgnore {
+        UsersTable.insertIgnore {
             it[id] = user.id
             it[firstName] = user.firstName
             it[middleName] = user.middleName

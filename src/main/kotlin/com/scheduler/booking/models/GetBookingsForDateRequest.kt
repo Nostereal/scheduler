@@ -1,11 +1,11 @@
 package com.scheduler.booking.models
 
-import com.scheduler.shared.serializer.ZonedDateTimeSerializer
+import com.scheduler.shared.serializer.date.LocalDateSerializer
 import kotlinx.serialization.Serializable
-import java.time.ZonedDateTime
+import java.time.LocalDate
 
 @Serializable
 data class GetBookingsForDateRequest(
-    @Serializable(with = ZonedDateTimeSerializer::class)
-    val date: ZonedDateTime
+    @Serializable(with = LocalDateSerializer::class)
+    val date: LocalDate
 )

@@ -1,11 +1,12 @@
 package com.scheduler.config
 
-import com.groupstp.isdayoff.IsDayOff
 import com.scheduler.db.dao.SystemConfigDao
+import com.scheduler.isdayoff.IsDayOff
 import com.scheduler.shared.models.TypedResult
+import com.scheduler.utils.dayTypesByRange
 import com.scheduler.utils.moscowZoneId
-import com.scheduler.utils.toJavaDate
-import com.scheduler.utils.toZonedDateTime
+import com.scheduler.utils.toLocalDate
+import java.time.LocalDate
 import java.time.ZonedDateTime
 
 class SystemConfigRepository(
@@ -13,16 +14,16 @@ class SystemConfigRepository(
     private val isDayOff: IsDayOff,
 ) {
 
-    suspend fun getAvailableDates(): TypedResult<List<ZonedDateTime>> {
-        val now = ZonedDateTime.now(moscowZoneId)
+    suspend fun getAvailableDates(): TypedResult<List<LocalDate>> {
+        val now = ZonedDateTime.now(moscowZoneId).toLocalDate()
         val config = systemConfigDao.getConfigForDate(now)
 
-        val dates = isDayOff.daysTypeByRange(
-            now.toJavaDate(),
-            now.plusDays(config.maxDaysAhead.toLong()).toJavaDate()
+        val dates = isDayOff.dayTypesByRange(
+            now,
+            now.plusDays(config.maxDaysAhead.toLong())
         )
             .filter { it.dayType.isWorkingDay == true }
-            .map { it.date.toZonedDateTime() }
+            .map { it.date.toLocalDate() }
 
         return TypedResult.Ok(dates)
     }

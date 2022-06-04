@@ -1,4 +1,4 @@
-package com.scheduler.shared.serializer
+package com.scheduler.shared.serializer.date
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

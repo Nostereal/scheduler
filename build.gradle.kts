@@ -49,8 +49,6 @@ dependencies {
     implementation("com.zaxxer:HikariCP:5.0.1") // JDBC Connection Pool
     implementation("org.postgresql:postgresql:42.3.4") // JDBC Connector for PostgreSQL
 
-    implementation(files("src/main/resources/libs/IsDayOff.jar"))
-
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.assertj:assertj-core:3.22.0")
     testImplementation(kotlin("test"))

@@ -1,14 +1,13 @@
 package com.scheduler.booking
 
-import com.groupstp.isdayoff.IsDayOff
-import com.scheduler.booking.models.BookingsForDateResponse
-import com.scheduler.booking.models.BookingsForTimeWindow
+import com.scheduler.booking.models.BookingsForDate
+import com.scheduler.booking.models.ScheduleBooking
 import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.SystemConfigDao
 import com.scheduler.db.dao.models.BookingDbModel
 import com.scheduler.db.tables.BookingEntity
+import com.scheduler.isdayoff.IsDayOff
 import com.scheduler.profile.models.Booking
-import com.scheduler.profile.toBookingModel
 import com.scheduler.shared.models.ErrorWithMessage
 import com.scheduler.shared.models.TypedResult
 import com.scheduler.utils.isDayWorking
@@ -17,8 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
-import java.time.LocalTime
+import java.time.LocalDate
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 import java.util.*
 
 class BookingRepository(
@@ -36,25 +36,39 @@ class BookingRepository(
         }
     }
 
-    suspend fun createBooking(userId: Long, startDate: ZonedDateTime): TypedResult<Booking> {
-        if (isDayOff.isDayWorking(startDate)) {
-            return TypedResult.BadRequest("This day is non-working")
+    suspend fun createBooking(userId: Long, date: LocalDate, sessionNum: Short): TypedResult<Booking> = coroutineScope {
+        if (date < ZonedDateTime.now(moscowZoneId).toLocalDate()) {
+            return@coroutineScope TypedResult.BadRequest("Хорошая попытка, но в прошлое записаться нельзя")
         }
 
-//        bookingsDao.allBookingsByDate()
+        if (!isDayOff.isDayWorking(date)) {
+            return@coroutineScope TypedResult.BadRequest("Этот день нерабочий :(")
+        }
+
+        val activeBookingsDef = async(Dispatchers.IO) {
+            bookingsDao.allUpcomingBookingsByUser(userId = userId, since = date)
+        }
+        val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
+
+        val maxActiveSessions = configDef.await().activeSessionsLimitPerUser
+        if (activeBookingsDef.await().size >= maxActiveSessions) {
+            val message = "Вы достигли максимума активных записей :("
+            cancel(message)
+            return@coroutineScope TypedResult.BadRequest(message)
+        }
 
         val dbBooking = bookingsDao.insertBooking(
             BookingDbModel(
-                date = startDate.toLocalDate(),
-                time = startDate.toLocalTime(),
+                date = date,
+                sessionNum = sessionNum,
                 ownerId = userId
             )
         )
-        return TypedResult.Ok(dbBooking.toBookingModel())
+        return@coroutineScope TypedResult.Ok(dbBooking)
     }
 
-    suspend fun getBookingsByDate(date: ZonedDateTime): TypedResult<BookingsForDateResponse> = coroutineScope {
-        val bookingsDef = async(Dispatchers.IO) { bookingsDao.allBookingsByDate(date.toLocalDate()) }
+    suspend fun getBookingsByDate(date: LocalDate): TypedResult<BookingsForDate> = coroutineScope {
+        val bookingsDef = async(Dispatchers.IO) { bookingsDao.allBookingsByDate(date) }
         val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
 
         if (!isDayOff.isDayWorking(date)) {
@@ -63,59 +77,66 @@ class BookingRepository(
             return@coroutineScope TypedResult.BadRequest(message)
         }
 
-        val bookings = bookingsDef.await()
+        val bookings: Map<Short, List<BookingEntity>> = bookingsDef.await().groupBy { it.sessionNum }
         val config = configDef.await()
 
-        val slotsPerSession = config.slotsPerSession
-        val sessionLengthSec = config.sessionSeconds.toLong()
+        val dayStart = config.workingHoursStart
+        val dayEnd = config.workingHoursEnd
+        val sessionSecs = config.sessionSeconds
+        val launchStart = config.launchTimeStart
+        val launchEnd = config.launchTimeEnd
+        val slotsPerSession = config.slotsPerSession.toInt()
 
-        var sessionTime = config.workingHoursStart..config.workingHoursStart.plusSeconds(sessionLengthSec)
-        val map = sortedMapOf<LocalTime, MutableList<BookingEntity>>()
+        val secsBeforeLaunch = dayStart.until(launchStart, ChronoUnit.SECONDS)
+        val secsAfterLaunch = launchEnd.until(dayEnd, ChronoUnit.SECONDS)
+        val sessionsBeforeLaunchCount = secsBeforeLaunch / sessionSecs
+        val sessionsAfterLaunchCount = secsAfterLaunch / sessionSecs
 
-        var sessionsPassed = 1
-        for ((i, booking) in bookings.withIndex()) {
-            val isFree = true
-            if (isFree && booking.time in sessionTime) {
-                map[sessionTime.start] = (map[sessionTime.start] ?: mutableListOf()).apply { add(booking) }
-            }
+        val sessionsBeforeLaunch = (0 until sessionsBeforeLaunchCount).map { sessionIndex ->
+            val sessionNum = (sessionIndex + 1).toShort()
+            val sessionBookings = bookings
+                .mapToScheduleBookings(sessionNum)
+                .take(slotsPerSession)
 
-
-            if (i / sessionsPassed / slotsPerSession == 1) {
-                sessionsPassed++
-                val nextEnd = sessionTime.endInclusive.plusSeconds(sessionLengthSec)
-                if (nextEnd > config.workingHoursEnd) break
-
-                sessionTime = if (nextEnd <= config.launchTimeStart) {
-                    sessionTime.endInclusive..nextEnd
-                } else {
-                    config.launchTimeEnd..config.launchTimeEnd.plusSeconds(sessionLengthSec)
-                }
-            }
-            map[sessionTime.start] = (map[sessionTime.start] ?: mutableListOf()).apply { add(booking) }
+            BookingsForDate.Session.Open(
+                startTime = dayStart.plusSeconds(sessionIndex * sessionSecs),
+                bookings = sessionBookings,
+            )
         }
 
-        // limit per session = 3
-        // i / sessionPassed / limit == 1
-        // i = 0, sessionPassed = 1 => false
-        // i = 1, sessionPassed = 1 => false
-        // i = 2, sessionPassed = 1 => false
-        // i = 3, sessionPassed = 1 => true => sessionsPassed = 2; update session time range; insert booking there
-        // i = 4, sessionPassed = 2 => false
-        // i = 5, sessionPassed = 2 => false
-        // i = 5, sessionPassed = 2 => true => sessionsPassed = 3; update session time range; insert booking there
+        val launchSession = BookingsForDate.Session.Launch(
+            banner = null,
+        )
 
-        val windows = map.map { (time, bookings) ->
-            BookingsForTimeWindow(
-                startDate = ZonedDateTime.of(date.toLocalDate(), time, moscowZoneId),
-                bookings = bookings.map { it.toBookingModel() },
+        val sessionsAfterLaunch = (0 until sessionsAfterLaunchCount).map { sessionIndex ->
+            val sessionNum = (sessionIndex + sessionsBeforeLaunchCount).toShort()
+            val sessionBookings = bookings
+                .mapToScheduleBookings(sessionNum)
+                .take(slotsPerSession)
+
+            BookingsForDate.Session.Open(
+                startTime = launchEnd.plusSeconds(sessionIndex * sessionSecs),
+                bookings = sessionBookings,
             )
         }
 
         return@coroutineScope TypedResult.Ok(
-            BookingsForDateResponse(
-                bookingWindows = windows,
+            BookingsForDate(
+                alert = null,
+                date = date,
+                sessionSeconds = sessionSecs,
+                sessions = sessionsBeforeLaunch + launchSession + sessionsAfterLaunch,
             )
         )
+    }
+
+    private fun Map<Short, List<BookingEntity>>.mapToScheduleBookings(sessionNum: Number): List<ScheduleBooking> {
+        return get(sessionNum)
+            .orEmpty()
+            .map {
+                val owner = it.ownerId
+                ScheduleBooking(id = it.id.value, owner = "${owner.firstName} ${owner.lastName} из ${owner.dormRoom}")
+            }
     }
 
 }

@@ -3,15 +3,14 @@ package com.scheduler.profile
 import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.UsersDao
 import com.scheduler.db.dao.models.UserDbModel
+import com.scheduler.db.tables.SystemConfig
 import com.scheduler.polytech.PolytechApi
-import com.scheduler.profile.models.Booking
 import com.scheduler.profile.models.ProfileInfo
 import com.scheduler.profile.models.ProfileResponse
-import com.scheduler.profile.models.TimeBracket
 import com.scheduler.shared.models.ImageUrl
 import kotlinx.coroutines.*
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 
 class ProfileRepository(
     private val bookingsDao: BookingsDao,
@@ -26,7 +25,7 @@ class ProfileRepository(
 
         val dormitory = dormitoryDeferred.await()
         val userInfo = userInfoDeferred.await().user
-        val bookings = bookingsDao.allBookingsByUser(userInfo.id).map { it.toBookingModel() }
+        val bookings = bookingsDao.allBookingsByUser(userInfo.id)/*.map { it.toBookingModel() }*/
 
         val userDbModel = UserDbModel.from(userInfo, dormitory)
         appScope.launch { usersDao.insertUserIfNotExist(userDbModel) }
@@ -48,13 +47,18 @@ class ProfileRepository(
 
 }
 
-fun com.scheduler.db.tables.BookingEntity.toBookingModel(): Booking {
-    val startTime = ZonedDateTime.of(date, time, ZoneId.of("Europe/Moscow"))
-    return Booking(
-        id = id.value,
-        timeBracket = TimeBracket(
-            start = startTime,
-            end = startTime.plusSeconds(configVersion.sessionSeconds.toLong()),
-        )
-    )
+fun calculateSessionStartTime(config: SystemConfig, sessionNum: Short): LocalTime {
+    val dayStart = config.workingHoursStart
+    val sessionSecs = config.sessionSeconds
+    val launchStart = config.launchTimeStart
+
+    val secsBeforeLaunch = dayStart.until(launchStart, ChronoUnit.SECONDS)
+    val sessionsBeforeLaunch = secsBeforeLaunch / sessionSecs
+    val sessionsLeft = sessionNum - sessionsBeforeLaunch
+
+    return if (sessionsLeft <= 0) {
+        dayStart.plusSeconds((sessionNum - 1L) * sessionSecs)
+    } else {
+        config.launchTimeEnd.plusSeconds((sessionsLeft - 1) * sessionSecs)
+    }
 }

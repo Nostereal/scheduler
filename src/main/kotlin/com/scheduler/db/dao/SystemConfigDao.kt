@@ -1,33 +1,33 @@
 package com.scheduler.db.dao
 
+import com.scheduler.db.dao.utils.dbQuery
 import com.scheduler.db.tables.SystemConfig
 import com.scheduler.db.tables.SystemConfigs
 import org.jetbrains.exposed.sql.SortOrder
-import java.time.ZonedDateTime
+import java.time.LocalDate
 
 interface SystemConfigDao {
 
-    suspend fun getConfigForDate(date: ZonedDateTime): SystemConfig
+    suspend fun getConfigForDate(date: LocalDate): SystemConfig
 
 }
 
 class SystemConfigDatabase : SystemConfigDao {
 
-    override suspend fun getConfigForDate(date: ZonedDateTime): SystemConfig {
+    override suspend fun getConfigForDate(date: LocalDate): SystemConfig = dbQuery {
         val configs = SystemConfig.all().orderBy(SystemConfigs.id to SortOrder.DESC).toList()
-        val localDateTime = date.toLocalDateTime()
 
         val actualConfig = configs.first()
-        if (localDateTime >= actualConfig.createdAt) return actualConfig
+        if (date >= actualConfig.createdAt) return@dbQuery actualConfig
 
         for (i in 0 until configs.lastIndex) {
             val newerConfig = configs[i]
             val olderConfig = configs[i + 1]
 
-            if (localDateTime == newerConfig.createdAt) {
-                return newerConfig
-            } else if (localDateTime < newerConfig.createdAt && localDateTime >= olderConfig.createdAt) {
-                return olderConfig
+            if (date == newerConfig.createdAt) {
+                return@dbQuery newerConfig
+            } else if (date < newerConfig.createdAt && date >= olderConfig.createdAt) {
+                return@dbQuery olderConfig
             }
         }
 

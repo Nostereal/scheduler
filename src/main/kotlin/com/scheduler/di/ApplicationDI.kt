@@ -1,7 +1,5 @@
 package com.scheduler.di
 
-import com.groupstp.isdayoff.IsDayOff
-import com.groupstp.isdayoff.enums.LocalesType
 import com.scheduler.AppConfig
 import com.scheduler.DatabaseConfig
 import com.scheduler.db.dao.DatabaseFactory
@@ -9,6 +7,8 @@ import com.scheduler.db.dao.DatabaseFactoryImpl
 import com.scheduler.db.dao.di.bindBookingsDao
 import com.scheduler.db.dao.di.bindSystemConfigDao
 import com.scheduler.db.dao.di.bindUsersDao
+import com.scheduler.isdayoff.IsDayOff
+import com.scheduler.isdayoff.IsDayOffBuilder
 import com.scheduler.plugins.json
 import com.scheduler.polytech.di.bindPolytechApi
 import io.ktor.client.*
@@ -63,11 +63,7 @@ val coreApplicationModule = DI.Module(name = "coreApplication") {
     bindSingleton(tag = APP_SCOPE_TAG) {
         CoroutineScope(CoroutineName("application scope") + SupervisorJob() + Dispatchers.Default)
     }
-    bindSingleton<IsDayOff> {
-        IsDayOff.Builder()
-            .setLocale(LocalesType.RUSSIA)
-            .build()
-    }
+    bindSingleton { IsDayOff(IsDayOffBuilder()) }
     bindHttpClient()
     bindPolytechApi()
     bindDao()

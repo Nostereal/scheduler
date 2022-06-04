@@ -19,7 +19,7 @@ fun Route.authHandler(di: DI) {
             )
         )
 
-        val response = authRepository.getToken(request.login, request.password)
+        val response = authRepository.getTokenWithUserId(request.login, request.password)
 
         call.respond(TypedResult.Ok(response))
     }

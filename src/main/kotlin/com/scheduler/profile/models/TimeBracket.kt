@@ -1,6 +1,6 @@
 package com.scheduler.profile.models
 
-import com.scheduler.shared.serializer.ZonedDateTimeSerializer
+import com.scheduler.shared.serializer.date.ZonedDateTimeSerializer
 import kotlinx.serialization.Serializable
 import java.time.ZonedDateTime
 

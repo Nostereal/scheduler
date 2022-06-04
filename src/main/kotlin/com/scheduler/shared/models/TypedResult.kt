@@ -5,7 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable(with = TypedResultSerializer::class)
 sealed class TypedResult<in T> {
-//    abstract val result: T?
     abstract val status: String
 
     @Serializable

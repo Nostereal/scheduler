@@ -6,6 +6,7 @@ import com.scheduler.polytech.models.PolytechUserResponse
 
 data class UserDbModel(
     val id: Long,
+    val avatar: String?,
     val firstName: String,
     val lastName: String,
     val middleName: String?,
@@ -17,6 +18,7 @@ data class UserDbModel(
         fun from(userInfo: PolytechUserResponse.User, dormitory: PolytechPaymentsResponse.Contracts.Dormitory) =
             UserDbModel(
                 id = userInfo.id,
+                avatar = userInfo.avatar,
                 firstName = userInfo.firstName,
                 lastName = userInfo.lastName,
                 middleName = userInfo.middleName,
@@ -28,6 +30,7 @@ data class UserDbModel(
         fun from(entity: UserEntity) = with(entity) {
             UserDbModel(
                 id = id.value,
+                avatar = entity.avatar,
                 firstName = firstName,
                 lastName = lastName,
                 middleName = middleName,

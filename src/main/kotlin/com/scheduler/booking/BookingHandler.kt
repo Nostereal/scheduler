@@ -2,19 +2,17 @@ package com.scheduler.booking
 
 import com.scheduler.booking.models.CreateBookingRequest
 import com.scheduler.booking.models.DeleteBookingRequest
-import com.scheduler.booking.models.GetBookingsForDateRequest
 import com.scheduler.config.SystemConfigRepository
 import com.scheduler.shared.models.TypedResult
-import com.scheduler.shared.serializer.TypedResultSerializer
-import com.scheduler.shared.serializer.date.LocalDateSerializer
 import com.scheduler.utils.respond
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.builtins.ListSerializer
 import org.kodein.di.DI
 import org.kodein.di.instance
+import java.time.LocalDate
 
 fun Route.bookingHandler(di: DI) {
     val bookingRepository: BookingRepository by di.instance()
@@ -47,11 +45,13 @@ fun Route.bookingHandler(di: DI) {
     }
 
     get("api/1/bookings") {
-        val requestData: GetBookingsForDateRequest = call.receiveOrNull()
+        val query = parseQueryString(call.request.queryString())
+
+        val date = query["date"]?.let(LocalDate::parse)
             ?: return@get call.respond(TypedResult.BadRequest.withDefaultError)
 
         val response = try {
-            bookingRepository.getBookingsByDate(requestData.date)
+            bookingRepository.getBookingsByDate(date)
         } catch (e: CancellationException) {
             TypedResult.BadRequest(e.message ?: "Произошла ошибка при получении расписания")
         }
@@ -60,7 +60,6 @@ fun Route.bookingHandler(di: DI) {
     }
 
     get("api/1/bookings/dates") {
-        val serializer = TypedResultSerializer(ListSerializer(LocalDateSerializer))
-        call.respond(serializer, systemConfigRepository.getAvailableDates())
+        call.respond(systemConfigRepository.getAvailableDates())
     }
 }

@@ -11,7 +11,7 @@ data class PolytechUserResponse(
     @Serializable
     data class User(
         val id: Long,
-        val avatar: String,
+        val avatar: String?,
         @SerialName("user_status") val userStatus: Status,
         @SerialName("name") val firstName: String,
         @SerialName("surname") val lastName: String,

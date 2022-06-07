@@ -1,5 +1,6 @@
 package com.scheduler.booking
 
+import com.scheduler.booking.models.AlertModel
 import com.scheduler.booking.models.BookingsForDate
 import com.scheduler.booking.models.ScheduleBooking
 import com.scheduler.db.dao.BookingsDao
@@ -7,7 +8,6 @@ import com.scheduler.db.dao.SystemConfigDao
 import com.scheduler.db.dao.models.BookingDbModel
 import com.scheduler.isdayoff.IsDayOff
 import com.scheduler.profile.models.ProfileBooking
-import com.scheduler.shared.models.ErrorWithMessage
 import com.scheduler.shared.models.TypedResult
 import com.scheduler.utils.isDayWorking
 import com.scheduler.utils.moscowZoneId
@@ -26,10 +26,10 @@ class BookingRepository(
     private val isDayOff: IsDayOff,
 ) {
 
-    suspend fun deleteBooking(id: UUID): TypedResult<ErrorWithMessage> {
+    suspend fun deleteBooking(id: UUID): TypedResult<Map<String, String>> {
         val success = bookingsDao.deleteBooking(id)
         return if (success) {
-            TypedResult.Ok(null)
+            TypedResult.Ok(emptyMap())
         } else {
             TypedResult.InternalError("No booking with id = $id was found")
         }
@@ -95,11 +95,13 @@ class BookingRepository(
                 startTime = dayStart.plusSeconds(sessionIndex * sessionSecs),
                 sessionNum = sessionNum,
                 bookings = sessionBookings,
+                maxBookingsPerSession = slotsPerSession,
             )
         }
 
         val launchSession = BookingsForDate.Session.Launch(
-            banner = null,
+            startTime = launchStart,
+            banner = AlertModel(title = "Закрыто на обед", body = "Сейчас работники кушают, но скоро всё откроется ;)"),
         )
 
         val sessionsAfterLaunch = (0 until sessionsAfterLaunchCount).map { sessionIndex ->
@@ -112,6 +114,7 @@ class BookingRepository(
                 startTime = launchEnd.plusSeconds(sessionIndex * sessionSecs),
                 sessionNum = sessionNum,
                 bookings = sessionBookings,
+                maxBookingsPerSession = slotsPerSession,
             )
         }
 

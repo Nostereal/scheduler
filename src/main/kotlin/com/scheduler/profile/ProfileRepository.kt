@@ -29,10 +29,10 @@ class ProfileRepository(
         val bookings = bookingsDao.allBookingsByUser(userInfo.id)
 
         val userDbModel = UserDbModel.from(userInfo, dormitory)
-        appScope.launch { usersDao.insertUserIfNotExist(userDbModel) }
+        appScope.launch { usersDao.insertOrUpdateUser(userDbModel) }
 
         val profileInfo = ProfileInfo(
-            avatar = ImageUrl(userInfo.avatar),
+            avatar = userInfo.avatar?.let { ImageUrl(it) },
             fullName = dormitory.student,
             dorm = dormitory.dormNum,
             livingRoom = dormitory.dormRoom,
@@ -46,7 +46,26 @@ class ProfileRepository(
         )
     }
 
-    // todo: get profile info directly by user id
+    suspend fun getProfileInfo(userId: Long): TypedResult<ProfileResponse> = coroutineScope {
+        val userDef = async(Dispatchers.IO) { usersDao.getUserById(userId)!! }
+        val bookingsDef = async(Dispatchers.IO) { bookingsDao.allBookingsByUser(userId) }
+
+        val user = userDef.await()
+        // todo: handle nullable fields
+        val profileInfo = ProfileInfo(
+            avatar = user.avatar?.let { ImageUrl(it) },
+            fullName = "${user.lastName} ${user.firstName}${user.middleName?.let { " $it" }}",
+            dorm = user.dormNum!!,
+            livingRoom = user.dormRoom!!,
+        )
+
+        TypedResult.Ok(
+            ProfileResponse(
+                profileInfo = profileInfo,
+                bookings = bookingsDef.await(),
+            )
+        )
+    }
 
 }
 

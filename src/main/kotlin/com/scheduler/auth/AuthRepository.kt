@@ -26,9 +26,7 @@ class AuthRepository(
         val dormitory = dormitoryDef.await()
 
         appScope.launch {
-            usersDao.insertUserIfNotExist(
-                user = UserDbModel.from(user, dormitory)
-            )
+            usersDao.insertOrUpdateUser(user = UserDbModel.from(user, dormitory))
         }
 
         TypedResult.Ok(

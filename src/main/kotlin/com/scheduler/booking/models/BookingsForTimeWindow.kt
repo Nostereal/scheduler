@@ -20,19 +20,23 @@ data class BookingsForDate(
 
     @Serializable
     sealed interface Session {
+        val startTime: LocalTime
 
         @Serializable
         @SerialName("open")
         data class Open(
             @Serializable(with = LocalTimeSerializer::class)
-            val startTime: LocalTime,
+            override val startTime: LocalTime,
             val sessionNum: Short,
+            val maxBookingsPerSession: Int,
             val bookings: List<ScheduleBooking>,
         ) : Session
 
         @Serializable
         @SerialName("launch")
         data class Launch(
+            @Serializable(with = LocalTimeSerializer::class)
+            override val startTime: LocalTime,
             val banner: AlertModel?,
         ) : Session
 

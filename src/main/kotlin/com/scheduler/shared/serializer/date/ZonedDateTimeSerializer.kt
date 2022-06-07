@@ -17,7 +17,7 @@ object ZonedDateTimeSerializer : KSerializer<ZonedDateTime> {
     override fun deserialize(decoder: Decoder): ZonedDateTime = ZonedDateTime.parse(decoder.decodeString())
 
     override fun serialize(encoder: Encoder, value: ZonedDateTime) {
-        encoder.encodeString(value.format(DateTimeFormatter.ISO_DATE_TIME))
+        encoder.encodeString(value.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
     }
 
 }

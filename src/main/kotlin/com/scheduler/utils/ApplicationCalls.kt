@@ -7,9 +7,16 @@ import com.scheduler.shared.utils.statusCode
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
+import io.ktor.utils.io.charsets.*
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-suspend inline fun <reified T> ApplicationCall.respond(result: TypedResult<T>) = respond(result.statusCode, result)
+suspend inline fun <reified T> ApplicationCall.respond(result: TypedResult<T>, json: Json = serverJsonConfiguration) =
+    respondText(
+        status = result.statusCode,
+        contentType = ContentType.Application.Json.withCharset(Charsets.UTF_8),
+        text = json.encodeToString(result),
+    )
 
 suspend inline fun <reified T> ApplicationCall.respond(
     serializer: TypedResultSerializer<T>,
@@ -17,6 +24,6 @@ suspend inline fun <reified T> ApplicationCall.respond(
     json: Json = serverJsonConfiguration,
 ) = respondText(
     status = result.statusCode,
-    contentType = ContentType.Application.Json,
+    contentType = ContentType.Application.Json.withCharset(Charsets.UTF_8),
     text = json.encodeToString(serializer, result),
 )

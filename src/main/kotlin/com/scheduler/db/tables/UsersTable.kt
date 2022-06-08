@@ -27,3 +27,9 @@ class UserEntity(id: EntityID<Long>) : LongEntity(id) {
     var dormRoom by UsersTable.dormRoom
     var isAdmin by UsersTable.isAdmin
 }
+
+val UserEntity.fullName
+    get() = "$lastName $firstName${if (middleName != null) " $middleName" else ""}"
+
+val UserEntity.fullNameWithoutMiddle
+    get() = "$lastName $firstName"

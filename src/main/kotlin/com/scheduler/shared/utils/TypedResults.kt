@@ -7,5 +7,6 @@ val TypedResult<*>.statusCode: HttpStatusCode
     get() = when (this) {
         is TypedResult.Ok -> HttpStatusCode.OK
         is TypedResult.BadRequest -> HttpStatusCode.BadRequest
+        is TypedResult.Unauthorized -> HttpStatusCode.Unauthorized
         is TypedResult.InternalError -> HttpStatusCode.InternalServerError
     }

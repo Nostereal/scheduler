@@ -4,6 +4,7 @@ import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.UsersDao
 import com.scheduler.db.dao.models.UserDbModel
 import com.scheduler.db.tables.SystemConfigEntity
+import com.scheduler.db.tables.fullName
 import com.scheduler.polytech.PolytechApi
 import com.scheduler.profile.models.ProfileInfo
 import com.scheduler.profile.models.ProfileResponse
@@ -54,7 +55,7 @@ class ProfileRepository(
         // todo: handle nullable fields
         val profileInfo = ProfileInfo(
             avatar = user.avatar?.let { ImageUrl(it) },
-            fullName = "${user.lastName} ${user.firstName}${user.middleName?.let { " $it" }}",
+            fullName = user.fullName,
             dorm = user.dormNum!!,
             livingRoom = user.dormRoom!!,
         )

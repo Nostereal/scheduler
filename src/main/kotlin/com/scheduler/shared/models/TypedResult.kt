@@ -37,4 +37,14 @@ sealed class TypedResult<in T> {
 
     }
 
+    @Serializable
+    data class Unauthorized(
+        val result: ErrorWithMessage,
+        override val status: String = "unauthorized",
+    ) : TypedResult<Any>() {
+
+        constructor(message: String) : this(result = ErrorWithMessage(message))
+
+    }
+
 }

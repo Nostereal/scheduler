@@ -1,11 +1,14 @@
 package com.scheduler.booking
 
 import com.scheduler.booking.models.AlertModel
+import com.scheduler.booking.models.BookingIntentionResponse
 import com.scheduler.booking.models.BookingsForDate
 import com.scheduler.booking.models.ScheduleBooking
 import com.scheduler.db.dao.BookingsDao
 import com.scheduler.db.dao.SystemConfigDao
+import com.scheduler.db.dao.UsersDao
 import com.scheduler.db.dao.models.BookingDbModel
+import com.scheduler.db.tables.*
 import com.scheduler.isdayoff.IsDayOff
 import com.scheduler.profile.models.ProfileBooking
 import com.scheduler.shared.models.TypedResult
@@ -17,12 +20,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import java.time.LocalDate
 import java.time.ZonedDateTime
-import java.time.temporal.ChronoUnit
 import java.util.*
 
 class BookingRepository(
     private val bookingsDao: BookingsDao,
     private val systemConfigDao: SystemConfigDao,
+    private val usersDao: UsersDao,
     private val isDayOff: IsDayOff,
 ) {
 
@@ -73,26 +76,19 @@ class BookingRepository(
         val bookings: Map<Short, List<BookingDbModel>> = bookingsDef.await().groupBy { it.sessionNum }
         val config = configDef.await()
 
-        val dayStart = config.workingHoursStart
-        val dayEnd = config.workingHoursEnd
         val sessionSecs = config.sessionSeconds
         val launchStart = config.launchTimeStart
-        val launchEnd = config.launchTimeEnd
         val slotsPerSession = config.slotsPerSession.toInt()
+        val sessionsBeforeLaunchCount = config.sessionsBeforeLaunch
 
-        val secsBeforeLaunch = dayStart.until(launchStart, ChronoUnit.SECONDS)
-        val secsAfterLaunch = launchEnd.until(dayEnd, ChronoUnit.SECONDS)
-        val sessionsBeforeLaunchCount = secsBeforeLaunch / sessionSecs
-        val sessionsAfterLaunchCount = secsAfterLaunch / sessionSecs
-
-        val sessionsBeforeLaunch = (0 until sessionsBeforeLaunchCount).map { sessionIndex ->
+        val sessionsBeforeLaunch = config.getSessionsIndicesBeforeLaunch().map { sessionIndex ->
             val sessionNum = (sessionIndex + 1).toShort()
             val sessionBookings = bookings
                 .mapToScheduleBookings(sessionNum)
                 .take(slotsPerSession)
 
             BookingsForDate.Session.Open(
-                startTime = dayStart.plusSeconds(sessionIndex * sessionSecs),
+                startTime = config.sessionStartTimeBeforeLaunchByIndex(sessionIndex),
                 sessionNum = sessionNum,
                 bookings = sessionBookings,
                 maxBookingsPerSession = slotsPerSession,
@@ -104,14 +100,14 @@ class BookingRepository(
             banner = AlertModel(title = "Закрыто на обед", body = "Сейчас работники кушают, но скоро всё откроется ;)"),
         )
 
-        val sessionsAfterLaunch = (0 until sessionsAfterLaunchCount).map { sessionIndex ->
+        val sessionsAfterLaunch = config.getSessionsIndicesAfterLaunch().map { sessionIndex ->
             val sessionNum = (sessionIndex + sessionsBeforeLaunchCount).toShort()
             val sessionBookings = bookings
                 .mapToScheduleBookings(sessionNum)
                 .take(slotsPerSession)
 
             BookingsForDate.Session.Open(
-                startTime = launchEnd.plusSeconds(sessionIndex * sessionSecs),
+                startTime = config.sessionStartTimeAfterLaunchByIndex(sessionIndex),
                 sessionNum = sessionNum,
                 bookings = sessionBookings,
                 maxBookingsPerSession = slotsPerSession,
@@ -128,6 +124,37 @@ class BookingRepository(
         )
     }
 
+    suspend fun getBookingIntentionInfo(userId: Long, date: LocalDate, sessionNum: Short) = coroutineScope {
+        val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
+        val userDef = async(Dispatchers.IO) { usersDao.getUserById(userId) }
+
+        val user = userDef.await() ?: return@coroutineScope TypedResult.Unauthorized("Такой пользователь не найден")
+        val config = configDef.await()
+
+        val dayStart = config.workingHoursStart
+        val sessionSecs = config.sessionSeconds.toLong()
+        val launchEnd = config.launchTimeEnd
+        
+        val sessionsIndicesBeforeLaunch = config.getSessionsIndicesBeforeLaunch()
+        val sessionsIndicesAfterLaunch = config.getSessionsIndicesAfterLaunch()
+
+        val sessionStartTime = when (val sessionIndex = sessionNum - 1) {
+            in sessionsIndicesBeforeLaunch -> dayStart.plusSeconds(sessionIndex * sessionSecs)
+            in sessionsIndicesAfterLaunch -> launchEnd.plusSeconds(sessionIndex * sessionSecs)
+            else -> return@coroutineScope TypedResult.BadRequest("Некорректная дата")
+        }
+        val sessionEndTime = sessionStartTime.plusSeconds(sessionSecs)
+
+
+        TypedResult.Ok(
+            BookingIntentionResponse(
+                ownerName = user.fullNameWithoutMiddle,
+                date = date,
+                timeInterval = "$sessionStartTime — $sessionEndTime",
+            )
+        )
+    }
+    
 }
 
 fun Map<Short, List<BookingDbModel>>.mapToScheduleBookings(sessionNum: Number): List<ScheduleBooking> {

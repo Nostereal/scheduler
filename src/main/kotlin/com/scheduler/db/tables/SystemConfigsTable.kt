@@ -7,7 +7,9 @@ import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.javatime.date
 import org.jetbrains.exposed.sql.javatime.time
+import java.time.LocalTime
 import java.time.ZonedDateTime
+import java.time.temporal.ChronoUnit
 
 object SystemConfigsTable : IntIdTable(name = "system_config", columnName = "version") {
     val sessionSeconds = integer("session_length_sec")
@@ -32,4 +34,47 @@ class SystemConfigEntity(id: EntityID<Int>) : IntEntity(id) {
     val maxDaysAhead by SystemConfigsTable.maxDaysAhead
     val slotsPerSession by SystemConfigsTable.slotsPerSession
     val activeSessionsLimitPerUser by SystemConfigsTable.activeSessionsLimitPerUser
+}
+
+val SystemConfigEntity.sessionsBeforeLaunch: Long
+    get() {
+        val dayStart = workingHoursStart
+        val sessionSecs = sessionSeconds
+        val launchStart = launchTimeStart
+        val secsBeforeLaunch = dayStart.until(launchStart, ChronoUnit.SECONDS)
+        return secsBeforeLaunch / sessionSecs
+    }
+
+fun SystemConfigEntity.sessionStartTimeBeforeLaunchByIndex(index: Long): LocalTime {
+    val dayStart = workingHoursStart
+    val sessionSecs = sessionSeconds
+    return dayStart.plusSeconds(index * sessionSecs)
+}
+
+fun SystemConfigEntity.sessionStartTimeAfterLaunchByIndex(index: Long): LocalTime {
+    val launchEnd = launchTimeEnd
+    val sessionSecs = sessionSeconds
+    return launchEnd.plusSeconds(index * sessionSecs)
+}
+
+fun SystemConfigEntity.getSessionsIndicesBeforeLaunch(): LongRange {
+    val dayStart = workingHoursStart
+    val sessionSecs = sessionSeconds
+    val launchStart = launchTimeStart
+
+    val secsBeforeLaunch = dayStart.until(launchStart, ChronoUnit.SECONDS)
+    val sessionsBeforeLaunchCount = secsBeforeLaunch / sessionSecs
+
+    return 0 until sessionsBeforeLaunchCount
+}
+
+fun SystemConfigEntity.getSessionsIndicesAfterLaunch(): LongRange {
+    val dayEnd = workingHoursEnd
+    val sessionSecs = sessionSeconds
+    val launchEnd = launchTimeEnd
+
+    val secsAfterLaunch = launchEnd.until(dayEnd, ChronoUnit.SECONDS)
+    val sessionsAfterLaunchCount = secsAfterLaunch / sessionSecs
+
+    return 0 until sessionsAfterLaunchCount
 }

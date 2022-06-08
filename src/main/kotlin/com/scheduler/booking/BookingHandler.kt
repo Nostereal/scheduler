@@ -32,7 +32,7 @@ fun Route.bookingHandler(di: DI) {
             ?: return@post call.respond(TypedResult.BadRequest.withDefaultError)
 
         val typedResult = try {
-            bookingRepository.createBooking(requestData.userId, requestData.startDate, requestData.sessionNum)
+            bookingRepository.createBooking(requestData.userId, requestData.date, requestData.sessionNum)
         } catch (e: CancellationException) {
             if (e.message == null) {
                 TypedResult.InternalError("Произошла ошибка при создании записи, попробуйте позже")
@@ -42,6 +42,25 @@ fun Route.bookingHandler(di: DI) {
         }
 
         call.respond(typedResult)
+    }
+
+    get("api/1/booking/intentionInfo") {
+        val query = parseQueryString(call.request.queryString())
+
+        val userId = query["userId"]
+        val date = query["date"]
+        val sessionNum = query["sessionNum"]
+        if (userId.isNullOrEmpty() || date.isNullOrEmpty() || sessionNum.isNullOrEmpty()) {
+            return@get call.respond(TypedResult.BadRequest.withDefaultError)
+        }
+
+        call.respond(
+            bookingRepository.getBookingIntentionInfo(
+                userId = userId.toLong(),
+                date = LocalDate.parse(date),
+                sessionNum = sessionNum.toShort(),
+            )
+        )
     }
 
     get("api/1/bookings") {

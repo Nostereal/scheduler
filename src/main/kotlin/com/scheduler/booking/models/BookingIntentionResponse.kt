@@ -5,9 +5,9 @@ import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
 @Serializable
-data class CreateBookingRequest(
-    val userId: Long,
+data class BookingIntentionResponse(
+    val ownerName: String,
     @Serializable(with = LocalDateSerializer::class)
     val date: LocalDate,
-    val sessionNum: Short,
+    val timeInterval: String,
 )

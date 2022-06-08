@@ -101,7 +101,7 @@ class BookingRepository(
         )
 
         val sessionsAfterLaunch = config.getSessionsIndicesAfterLaunch().map { sessionIndex ->
-            val sessionNum = (sessionIndex + sessionsBeforeLaunchCount).toShort()
+            val sessionNum = (sessionIndex + 1 + sessionsBeforeLaunchCount).toShort()
             val sessionBookings = bookings
                 .mapToScheduleBookings(sessionNum)
                 .take(slotsPerSession)

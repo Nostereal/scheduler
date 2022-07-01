@@ -8,6 +8,7 @@ import org.jetbrains.exposed.dao.id.IdTable
 object UsersTable : IdTable<Long>(name = "users") {
     override val id = long("id").entityId()
     override val primaryKey = PrimaryKey(id)
+    val token = varchar("token", 255)
     val avatar = varchar("avatar_url", 2083).nullable()
     val firstName = varchar("first_name", 50)
     val lastName = varchar("last_name", 50)
@@ -19,6 +20,7 @@ object UsersTable : IdTable<Long>(name = "users") {
 
 class UserEntity(id: EntityID<Long>) : LongEntity(id) {
     companion object : LongEntityClass<UserEntity>(UsersTable)
+    var token by UsersTable.token
     var avatar by UsersTable.avatar
     var firstName by UsersTable.firstName
     var lastName by UsersTable.lastName

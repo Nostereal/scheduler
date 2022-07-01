@@ -38,6 +38,9 @@ dependencies {
     implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
 
+    implementation("io.ktor:ktor-server-cors:$ktor_version")
+
+
     implementation("org.kodein.di:kodein-di-framework-ktor-server-jvm:$kodein_version") // kodein for ktor
 
     // Exposed ORM library

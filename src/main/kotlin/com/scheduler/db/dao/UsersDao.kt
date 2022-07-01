@@ -11,6 +11,8 @@ interface UsersDao {
 
     suspend fun getUserById(userId: Long): UserEntity?
 
+    suspend fun getUserByToken(token: String): UserEntity?
+
     suspend fun insertOrUpdateUser(user: UserDbModel)
 
 }
@@ -21,11 +23,16 @@ class UsersDatabase : UsersDao {
         UserEntity.findById(userId)
     }
 
+    override suspend fun getUserByToken(token: String): UserEntity? = dbQuery {
+        UserEntity.find { UsersTable.token eq token }.firstOrNull()
+    }
+
     override suspend fun insertOrUpdateUser(user: UserDbModel): Unit = dbQuery {
         if (UserEntity.findById(user.id) != null) {
             UsersTable.update(where = { UsersTable.id eq user.id }) { updateWith(it, user) }
         } else {
             UserEntity.new(user.id) {
+                token = user.token
                 avatar = user.avatar
                 firstName = user.firstName
                 middleName = user.middleName
@@ -39,6 +46,7 @@ class UsersDatabase : UsersDao {
 
     private fun UsersTable.updateWith(it: UpdateBuilder<*>, user: UserDbModel) {
 //        it[id] = user.id
+        it[token] = user.token
         it[avatar] = user.avatar
         it[firstName] = user.firstName
         it[middleName] = user.middleName

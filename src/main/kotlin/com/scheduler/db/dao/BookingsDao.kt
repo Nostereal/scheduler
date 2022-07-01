@@ -10,8 +10,11 @@ import com.scheduler.db.tables.UserEntity
 import com.scheduler.profile.models.ProfileBooking
 import org.jetbrains.exposed.dao.with
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greaterEq
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
+import org.jetbrains.exposed.sql.or
 import java.time.LocalDate
 import java.util.*
 
@@ -19,7 +22,17 @@ interface BookingsDao {
 
     suspend fun allBookingsByUser(userId: Long): List<ProfileBooking>
 
-    suspend fun allUpcomingBookingsByUser(userId: Long, since: LocalDate): List<BookingEntity>
+    suspend fun allUpcomingBookingsByUser(
+        userId: Long,
+        since: LocalDate,
+        sinceSessionNumInclusive: Short
+    ): List<BookingEntity>
+
+    suspend fun allUpcomingProfileBookingsByUser(
+        userId: Long,
+        since: LocalDate,
+        sinceSessionNumInclusive: Short,
+    ): List<ProfileBooking>
 
     suspend fun allBookings(): List<BookingEntity>
 
@@ -44,10 +57,27 @@ class BookingDatabase : BookingsDao {
             .map(::toBookingModel)
     }
 
-    override suspend fun allUpcomingBookingsByUser(userId: Long, since: LocalDate): List<BookingEntity> = dbQuery {
+    override suspend fun allUpcomingBookingsByUser(
+        userId: Long,
+        since: LocalDate,
+        sinceSessionNumInclusive: Short,
+    ): List<BookingEntity> = dbQuery {
+        val dateEqSince =
+            (BookingsTable.date eq since) and (BookingsTable.sessionNumber greaterEq sinceSessionNumInclusive)
         BookingEntity
-            .find { (BookingsTable.date greaterEq since) and (BookingsTable.ownerId eq userId) }
+            .find {
+                (BookingsTable.ownerId eq userId) and ((BookingsTable.date greater since) or dateEqSince)
+            }
             .toList()
+    }
+
+    override suspend fun allUpcomingProfileBookingsByUser(
+        userId: Long,
+        since: LocalDate,
+        sinceSessionNumInclusive: Short,
+    ): List<ProfileBooking> = dbQuery {
+        allUpcomingBookingsByUser(userId, since, sinceSessionNumInclusive)
+            .map(::toBookingModel)
     }
 
     override suspend fun allBookings(): List<BookingEntity> = dbQuery {
@@ -60,7 +90,7 @@ class BookingDatabase : BookingsDao {
             .orderBy(BookingsTable.sessionNumber to SortOrder.ASC)
             .with(BookingEntity::owner)
             .toList()
-            .map (BookingDbModel::from)
+            .map(BookingDbModel::from)
     }
 
     override suspend fun insertBooking(

@@ -6,7 +6,7 @@ import java.time.LocalDate
 
 @Serializable
 data class CreateBookingRequest(
-    val userId: Long,
+    val token: String,
     @Serializable(with = LocalDateSerializer::class)
     val date: LocalDate,
     val sessionNum: Short,

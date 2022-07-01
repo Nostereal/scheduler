@@ -38,37 +38,51 @@ class BookingRepository(
         }
     }
 
-    suspend fun createBooking(userId: Long, date: LocalDate, sessionNum: Short): TypedResult<ProfileBooking> = coroutineScope {
-        if (date < ZonedDateTime.now(moscowZoneId).toLocalDate()) {
-            return@coroutineScope TypedResult.BadRequest("Хорошая попытка, но в прошлое записаться нельзя")
-        }
+    suspend fun createBooking(token: String, date: LocalDate, sessionNum: Short): TypedResult<ProfileBooking> =
+        coroutineScope {
+            val now = ZonedDateTime.now(moscowZoneId)
+            if (date < now.toLocalDate()) {
+                return@coroutineScope TypedResult.BadRequest("Хорошая попытка, но в прошлое записаться нельзя")
+            }
 
-        if (!isDayOff.isDayWorking(date)) {
-            return@coroutineScope TypedResult.BadRequest("Этот день нерабочий :(")
-        }
+            if (!isDayOff.isDayWorking(date)) {
+                return@coroutineScope TypedResult.BadRequest("Этот день нерабочий :(")
+            }
 
-        val activeBookingsDef = async(Dispatchers.IO) {
-            bookingsDao.allUpcomingBookingsByUser(userId = userId, since = date)
-        }
-        val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
+            val config = systemConfigDao.getConfigForDate(date)
 
-        val maxActiveSessions = configDef.await().activeSessionsLimitPerUser
-        if (activeBookingsDef.await().size >= maxActiveSessions) {
-            val message = "Вы достигли максимума активных записей :("
-            cancel(message)
-            return@coroutineScope TypedResult.BadRequest(message)
-        }
+            val firstAvailableSessionNum = systemConfigDao.getFirstAvailableSessionNum(
+                date = date,
+                time = now.toLocalTime(),
+                config = config,
+            ) ?: return@coroutineScope TypedResult.BadRequest("На эту дату больше нельзя записаться")
 
-        val dbBooking = bookingsDao.insertBooking(date = date, sessionNum = sessionNum, ownerId = userId)
-        return@coroutineScope TypedResult.Ok(dbBooking)
-    }
+            val userId = usersDao.getUserByToken(token)?.id?.value
+                ?: return@coroutineScope TypedResult.BadRequest("Такого пользователя не существует")
+
+            val activeBookings = bookingsDao.allUpcomingBookingsByUser(
+                userId = userId,
+                since = date,
+                sinceSessionNumInclusive = firstAvailableSessionNum,
+            )
+
+            val maxActiveSessions = config.activeSessionsLimitPerUser
+            if (activeBookings.size >= maxActiveSessions) {
+                val message = "Вы достигли максимума активных записей :("
+                cancel(message)
+                return@coroutineScope TypedResult.BadRequest(message)
+            }
+
+            val dbBooking = bookingsDao.insertBooking(date = date, sessionNum = sessionNum, ownerId = userId)
+            return@coroutineScope TypedResult.Ok(dbBooking)
+        }
 
     suspend fun getBookingsByDate(date: LocalDate): TypedResult<BookingsForDate> = coroutineScope {
         val bookingsDef = async(Dispatchers.IO) { bookingsDao.allBookingsByDate(date) }
         val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
 
         if (!isDayOff.isDayWorking(date)) {
-            val message = "Passed day isn't working one"
+            val message = "Выбранный день нерабочий :("
             cancel(message)
             return@coroutineScope TypedResult.BadRequest(message)
         }
@@ -79,9 +93,9 @@ class BookingRepository(
         val sessionSecs = config.sessionSeconds
         val launchStart = config.launchTimeStart
         val slotsPerSession = config.slotsPerSession.toInt()
-        val sessionsBeforeLaunchCount = config.sessionsBeforeLaunch
 
-        val sessionsBeforeLaunch = config.getSessionsIndicesBeforeLaunch().map { sessionIndex ->
+        val sessionsIndicesBeforeLaunch = config.getSessionsIndicesBeforeLaunch()
+        val sessionsBeforeLaunch = sessionsIndicesBeforeLaunch.map { sessionIndex ->
             val sessionNum = (sessionIndex + 1).toShort()
             val sessionBookings = bookings
                 .mapToScheduleBookings(sessionNum)
@@ -101,7 +115,7 @@ class BookingRepository(
         )
 
         val sessionsAfterLaunch = config.getSessionsIndicesAfterLaunch().map { sessionIndex ->
-            val sessionNum = (sessionIndex + 1 + sessionsBeforeLaunchCount).toShort()
+            val sessionNum = (sessionIndex + 1 + sessionsIndicesBeforeLaunch.last + 1).toShort()
             val sessionBookings = bookings
                 .mapToScheduleBookings(sessionNum)
                 .take(slotsPerSession)
@@ -114,19 +128,24 @@ class BookingRepository(
             )
         }
 
+        val nowTime = ZonedDateTime.now(moscowZoneId).toLocalTime()
+        val firstAvailableSessionNum =
+            systemConfigDao.getFirstAvailableSessionNum(date, nowTime, config) ?: Short.MAX_VALUE
+
         return@coroutineScope TypedResult.Ok(
             BookingsForDate(
                 alert = null,
                 date = date,
+                canBookSinceSessionNum = firstAvailableSessionNum,
                 sessionSeconds = sessionSecs,
                 sessions = sessionsBeforeLaunch + launchSession + sessionsAfterLaunch,
             )
         )
     }
 
-    suspend fun getBookingIntentionInfo(userId: Long, date: LocalDate, sessionNum: Short) = coroutineScope {
+    suspend fun getBookingIntentionInfo(token: String, date: LocalDate, sessionNum: Short) = coroutineScope {
         val configDef = async(Dispatchers.IO) { systemConfigDao.getConfigForDate(date) }
-        val userDef = async(Dispatchers.IO) { usersDao.getUserById(userId) }
+        val userDef = async(Dispatchers.IO) { usersDao.getUserByToken(token) }
 
         val user = userDef.await() ?: return@coroutineScope TypedResult.Unauthorized("Такой пользователь не найден")
         val config = configDef.await()
@@ -134,13 +153,17 @@ class BookingRepository(
         val dayStart = config.workingHoursStart
         val sessionSecs = config.sessionSeconds.toLong()
         val launchEnd = config.launchTimeEnd
-        
+
         val sessionsIndicesBeforeLaunch = config.getSessionsIndicesBeforeLaunch()
-        val sessionsIndicesAfterLaunch = config.getSessionsIndicesAfterLaunch()
+        val firstIndexAfterLaunch = sessionsIndicesBeforeLaunch.last + 1
+        val sessionsIndicesAfterLaunch = config.getSessionsIndicesAfterLaunch().run {
+            val endIndex = firstIndexAfterLaunch + last
+            firstIndexAfterLaunch..endIndex
+        }
 
         val sessionStartTime = when (val sessionIndex = sessionNum - 1) {
             in sessionsIndicesBeforeLaunch -> dayStart.plusSeconds(sessionIndex * sessionSecs)
-            in sessionsIndicesAfterLaunch -> launchEnd.plusSeconds(sessionIndex * sessionSecs)
+            in sessionsIndicesAfterLaunch -> launchEnd.plusSeconds((sessionIndex - firstIndexAfterLaunch) * sessionSecs)
             else -> return@coroutineScope TypedResult.BadRequest("Некорректная дата")
         }
         val sessionEndTime = sessionStartTime.plusSeconds(sessionSecs)
@@ -154,7 +177,7 @@ class BookingRepository(
             )
         )
     }
-    
+
 }
 
 fun Map<Short, List<BookingDbModel>>.mapToScheduleBookings(sessionNum: Number): List<ScheduleBooking> {

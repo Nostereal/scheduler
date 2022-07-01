@@ -20,6 +20,7 @@ class DatabaseFactoryImpl(private val dbConfig: DatabaseConfig) : DatabaseFactor
     override fun connect() {
         val database = Database.connect(url = dbConfig.jdbcUrl, driver = dbConfig.driverClassName)
         transaction(database) {
+//            SchemaUtils.drop(BookingsTable, UsersTable)
             SchemaUtils.create(BookingsTable, UsersTable, SystemConfigsTable)
             SchemaUtils.createMissingTablesAndColumns(BookingsTable, UsersTable, SystemConfigsTable)
         }

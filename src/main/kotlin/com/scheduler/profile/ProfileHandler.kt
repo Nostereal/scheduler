@@ -15,17 +15,9 @@ fun Route.profileHandler(di: DI) {
     get("api/1/profile") {
         val params = parseQueryString(call.request.queryString())
 
-        val token = params["token"]
-        val userId = params["userId"]
-        if (userId != null) {
-            val profileInfo = profileRepository.getProfileInfo(userId.toLong())
-            call.respond(profileInfo)
-        } else if (token != null) {
-            val profileInfo = profileRepository.getProfileInfo(token)
-            call.respond(profileInfo)
-        } else {
-            call.respond(TypedResult.BadRequest.withDefaultError)
-        }
+        val token = params["token"] ?: return@get call.respond(TypedResult.BadRequest.withDefaultError)
+
+        call.respond(profileRepository.getProfileInfo(token))
     }
 
 }

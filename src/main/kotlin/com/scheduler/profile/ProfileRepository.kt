@@ -1,6 +1,7 @@
 package com.scheduler.profile
 
 import com.scheduler.db.dao.BookingsDao
+import com.scheduler.db.dao.SystemConfigDao
 import com.scheduler.db.dao.UsersDao
 import com.scheduler.db.dao.models.UserDbModel
 import com.scheduler.db.tables.SystemConfigEntity
@@ -10,18 +11,21 @@ import com.scheduler.profile.models.ProfileInfo
 import com.scheduler.profile.models.ProfileResponse
 import com.scheduler.shared.models.ImageUrl
 import com.scheduler.shared.models.TypedResult
+import com.scheduler.utils.moscowZoneId
 import kotlinx.coroutines.*
 import java.time.LocalTime
+import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
 
 class ProfileRepository(
     private val bookingsDao: BookingsDao,
     private val usersDao: UsersDao,
+    private val configDao: SystemConfigDao,
     private val polytechApi: PolytechApi,
     private val appScope: CoroutineScope,
 ) {
 
-    suspend fun getProfileInfo(token: String): TypedResult<ProfileResponse> = coroutineScope {
+    suspend fun getProfileInfoByPolytech(token: String): TypedResult<ProfileResponse> = coroutineScope {
         val dormitoryDeferred = async(Dispatchers.IO) { polytechApi.getDormInfo(token) }
         val userInfoDeferred = async(Dispatchers.IO) { polytechApi.getUserInfo(token) }
 
@@ -29,7 +33,7 @@ class ProfileRepository(
         val userInfo = userInfoDeferred.await().user
         val bookings = bookingsDao.allBookingsByUser(userInfo.id)
 
-        val userDbModel = UserDbModel.from(userInfo, dormitory)
+        val userDbModel = UserDbModel.from(token, userInfo, dormitory)
         appScope.launch { usersDao.insertOrUpdateUser(userDbModel) }
 
         val profileInfo = ProfileInfo(
@@ -47,9 +51,49 @@ class ProfileRepository(
         )
     }
 
+    suspend fun getProfileInfo(token: String): TypedResult<ProfileResponse> = coroutineScope {
+        val user = usersDao.getUserByToken(token)
+            ?: return@coroutineScope TypedResult.BadRequest("Такого пользователя не существует")
+//        val userDef = async(Dispatchers.IO) { usersDao.getUserById(userId)!! }
+        val now = ZonedDateTime.now(moscowZoneId)
+
+        val firstAvailableSessionNum =
+            configDao.getFirstAvailableSessionNum(date = now.toLocalDate(), time = now.toLocalTime()) ?: -1
+
+        val bookings = bookingsDao.allUpcomingProfileBookingsByUser(
+            userId = user.id.value,
+            since = now.toLocalDate(),
+            sinceSessionNumInclusive = firstAvailableSessionNum,
+        )
+
+        // todo: handle nullable fields
+        val profileInfo = ProfileInfo(
+            avatar = user.avatar?.let { ImageUrl(it) },
+            fullName = user.fullName,
+            dorm = user.dormNum!!,
+            livingRoom = user.dormRoom!!,
+        )
+
+        TypedResult.Ok(
+            ProfileResponse(
+                profileInfo = profileInfo,
+                bookings = bookings,
+            )
+        )
+    }
+
     suspend fun getProfileInfo(userId: Long): TypedResult<ProfileResponse> = coroutineScope {
         val userDef = async(Dispatchers.IO) { usersDao.getUserById(userId)!! }
-        val bookingsDef = async(Dispatchers.IO) { bookingsDao.allBookingsByUser(userId) }
+        val now = ZonedDateTime.now(moscowZoneId)
+
+        val firstAvailableSessionNum =
+            configDao.getFirstAvailableSessionNum(date = now.toLocalDate(), time = now.toLocalTime()) ?: -1
+
+        val bookings = bookingsDao.allUpcomingProfileBookingsByUser(
+            userId = userId,
+            since = now.toLocalDate(),
+            sinceSessionNumInclusive = firstAvailableSessionNum,
+        )
 
         val user = userDef.await()
         // todo: handle nullable fields
@@ -63,7 +107,7 @@ class ProfileRepository(
         TypedResult.Ok(
             ProfileResponse(
                 profileInfo = profileInfo,
-                bookings = bookingsDef.await(),
+                bookings = bookings,
             )
         )
     }

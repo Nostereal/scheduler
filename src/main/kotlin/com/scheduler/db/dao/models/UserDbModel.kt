@@ -6,6 +6,7 @@ import com.scheduler.polytech.models.PolytechUserResponse
 
 data class UserDbModel(
     val id: Long,
+    val token: String,
     val avatar: String?,
     val firstName: String,
     val lastName: String,
@@ -15,9 +16,10 @@ data class UserDbModel(
     val isAdmin: Boolean,
 ) {
     companion object {
-        fun from(userInfo: PolytechUserResponse.User, dormitory: PolytechPaymentsResponse.Contracts.Dormitory) =
+        fun from(token: String, userInfo: PolytechUserResponse.User, dormitory: PolytechPaymentsResponse.Contracts.Dormitory) =
             UserDbModel(
                 id = userInfo.id,
+                token = token,
                 avatar = userInfo.avatar,
                 firstName = userInfo.firstName,
                 lastName = userInfo.lastName,
@@ -30,6 +32,7 @@ data class UserDbModel(
         fun from(entity: UserEntity) = with(entity) {
             UserDbModel(
                 id = id.value,
+                token = token,
                 avatar = entity.avatar,
                 firstName = firstName,
                 lastName = lastName,

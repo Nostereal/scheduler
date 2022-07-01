@@ -13,6 +13,7 @@ import java.util.*
 data class BookingsForDate(
     val alert: AlertModel?,
     val sessionSeconds: Int,
+    val canBookSinceSessionNum: Short,
     @Serializable(with = LocalDateSerializer::class)
     val date: LocalDate,
     val sessions: List<Session>,
